@@ -3,6 +3,9 @@ import { v4 as uuidv4 } from "uuid";
 export type Priority = "low" | "medium" | "high" | "urgent";
 export type Status = "todo" | "in_progress" | "done" | "cancelled";
 
+export const PRIORITIES: Priority[] = ["low", "medium", "high", "urgent"];
+export const STATUSES: Status[] = ["todo", "in_progress", "done", "cancelled"];
+
 export interface Task {
   id: string;
   title: string;
@@ -21,11 +24,13 @@ export interface TaskStore {
 }
 
 export function createTask(title: string, description: string = "", priority: Priority = "medium"): Task {
+  if (!title.trim()) throw new Error("Task title cannot be empty");
+  if (!PRIORITIES.includes(priority)) throw new Error(`Invalid priority: ${priority}`);
   const now = new Date().toISOString();
   return {
     id: uuidv4(),
-    title,
-    description,
+    title: title.trim(),
+    description: description.trim(),
     priority,
     status: "todo",
     tags: [],
@@ -43,6 +48,21 @@ export function updateTask(task: Task, updates: Partial<Omit<Task, "id" | "creat
   };
 }
 
+export function taskToCSV(task: Task): string {
+  const escape = (s: string) => `"${s.replace(/"/g, '""')}"`;
+  return [
+    task.id,
+    escape(task.title),
+    escape(task.description),
+    task.priority,
+    task.status,
+    escape(task.tags.join(";")),
+    task.created,
+    task.updated,
+    task.completedAt || "",
+  ].join(",");
+}
+
 export function serializeStore(store: TaskStore): string {
   return JSON.stringify(store, null, 2);
 }
@@ -50,8 +70,19 @@ export function serializeStore(store: TaskStore): string {
 export function deserializeStore(json: string): TaskStore {
   try {
     const data = JSON.parse(json);
+    if (!Array.isArray(data.tasks)) throw new Error("Invalid store format");
     return {
-      tasks: data.tasks || [],
+      tasks: data.tasks.map((t: any) => ({
+        id: t.id || uuidv4(),
+        title: t.title || "Untitled",
+        description: t.description || "",
+        priority: PRIORITIES.includes(t.priority) ? t.priority : "medium",
+        status: STATUSES.includes(t.status) ? t.status : "todo",
+        tags: Array.isArray(t.tags) ? t.tags : [],
+        created: t.created || new Date().toISOString(),
+        updated: t.updated || new Date().toISOString(),
+        completedAt: t.completedAt,
+      })),
       lastUpdated: data.lastUpdated || new Date().toISOString(),
     };
   } catch {

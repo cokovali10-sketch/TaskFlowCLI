@@ -1,3 +1,13 @@
 node_modules/
 dist/
 *.js.map
+*.tsbuildinfo
+.env
+.env.*
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
