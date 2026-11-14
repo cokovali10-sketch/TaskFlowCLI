@@ -1,8 +1,40 @@
 import * as fs from "fs";
 import * as path from "path";
-import { Task, TaskStore, serializeStore, deserializeStore, taskToCSV, PRIORITIES, STATUSES } from "./models";
+import { Task, TaskStore, serializeStore, deserializeStore, taskToCSV, updateTask, PRIORITIES, STATUSES } from "./models";
 
 const DEFAULT_PATH = path.join(process.env.HOME || process.env.USERPROFILE || ".", ".taskflow.json");
+
+function parseCSVLine(line: string): string[] {
+  const fields: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  const text = line.endsWith("\r") ? line.slice(0, -1) : line;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ",") {
+      fields.push(current);
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+  fields.push(current);
+  return fields;
+}
 
 export class Storage {
   private filePath: string;
@@ -55,7 +87,6 @@ export class Storage {
   update(id: string, updates: Partial<Omit<Task, "id" | "created">>): Task | null {
     const idx = this.store.tasks.findIndex((t) => t.id === id || t.id.startsWith(id));
     if (idx === -1) return null;
-    const { updateTask } = require("./models");
     this.store.tasks[idx] = updateTask(this.store.tasks[idx], updates);
     this.save();
     return this.store.tasks[idx];
@@ -194,8 +225,8 @@ export class Storage {
 
     const tasks: Task[] = [];
     for (let i = 1; i < lines.length; i++) {
-      const parts = lines[i].match(/(".*?"|[^,]+)/g);
-      if (!parts || parts.length < 9) continue;
+      const parts = parseCSVLine(lines[i]);
+      if (parts.length < 8) continue;
       const unquote = (s: string) => s.replace(/^"|"$/g, "").replace(/""/g, '"');
       const task: Task = {
         id: parts[0],

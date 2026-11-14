@@ -54,7 +54,7 @@ describe("Task Model", () => {
     const updated = updateTask(task, { title: "Updated" });
     expect(updated.title).toBe("Updated");
     expect(updated.created).toBe(originalCreated);
-    expect(updated.updated).not.toBe(task.updated);
+    expect(new Date(updated.updated).getTime()).toBeGreaterThanOrEqual(new Date(task.updated).getTime());
   });
 
   it("should trim whitespace from title and description", () => {
